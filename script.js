@@ -361,3 +361,24 @@ async function callQwen(messages, settings) {
   }
   return content;
 }
+
+// ===== دکمه‌ی تست مستقیم صدا (تشخیص مشکل: کد یا خود گوشی؟) =====
+const voiceTestBtn = document.getElementById("voice-test-btn");
+if (voiceTestBtn) {
+  voiceTestBtn.addEventListener("click", () => {
+    if (!("speechSynthesis" in window)) {
+      addMessage("system", "تست صدا: مرورگرت اصلاً speechSynthesis نداره.");
+      return;
+    }
+    addMessage("system", "تست صدا: در حال تلاش برای پخش صدای انگلیسی ساده...");
+    const u = new SpeechSynthesisUtterance("Hello, this is a voice test.");
+    u.lang = "en-US";
+    u.volume = 1;
+    u.rate = 1;
+    u.onstart = () => addMessage("system", "تست صدا: پخش شروع شد (onstart فایر شد).");
+    u.onend = () => addMessage("system", "تست صدا: پخش تموم شد (onend فایر شد). اگه صدایی نشنیدی، مشکل از گوشیه (صدای مدیا/موتور TTS)، نه کد.");
+    u.onerror = (e) => addMessage("system", "تست صدا: خطا -> " + (e.error || "نامشخص"));
+    window.speechSynthesis.cancel();
+    setTimeout(() => window.speechSynthesis.speak(u), 100);
+  });
+}
