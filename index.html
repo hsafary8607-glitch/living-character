@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شخصیت زنده‌نما</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>شخصیت زنده‌نما</h1>
+    <p class="subtitle">مرحله ۴ — لایه‌ی بصری</p>
+  </header>
+
+  <main class="app-main">
+
+    <section class="character-panel">
+      <div id="character-stage" class="character-stage"></div>
+
+      <div class="character-controls">
+        <div class="gender-switch">
+          <button type="button" id="gender-girl-btn" class="gender-btn active">دختر</button>
+          <button type="button" id="gender-boy-btn" class="gender-btn">پسر</button>
+        </div>
+
+        <label for="hair-color-input">رنگ مو</label>
+        <input type="color" id="hair-color-input" value="#a56cf2">
+
+        <label for="eye-color-input">رنگ چشم</label>
+        <input type="color" id="eye-color-input" value="#4fc3f7">
+
+        <label for="clothes-color-input">رنگ غالب لباس</label>
+        <input type="color" id="clothes-color-input" value="#6c5ce7">
+
+        <label for="accessory-select">اکسسوری فانتزی</label>
+        <select id="accessory-select">
+          <option value="none">هیچ‌کدوم</option>
+          <option value="ears">گوش نوک‌تیز</option>
+          <option value="wings">بال</option>
+          <option value="halo">هاله</option>
+          <option value="wand">چوب‌دستی</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="settings-panel">
+      <h2>تنظیمات اتصال (OpenRouter)</h2>
+
+      <label for="api-key">کلید API (OpenRouter)</label>
+      <input type="password" id="api-key" placeholder="کلید API خودت رو اینجا بذار">
+
+      <label for="model-select">مدل</label>
+      <select id="model-select">
+        <option value="qwen/qwen3.6-plus:free">Qwen (رایگان — ممکنه کند/محدود باشه)</option>
+        <option value="deepseek/deepseek-chat">DeepSeek (پولی — سریع‌تر، نیاز به شارژ حساب)</option>
+      </select>
+
+      <button id="save-settings">ذخیره تنظیمات</button>
+      <p id="settings-status" class="status-text"></p>
+    </section>
+
+    <section class="chat-panel">
+      <div id="character-status" class="character-status"></div>
+      <label class="voice-toggle">
+        <input type="checkbox" id="voice-output-toggle" checked>
+        شخصیت جواب‌ها رو با صدا بخونه
+      </label>
+      <div id="chat-log" class="chat-log"></div>
+
+      <form id="chat-form" class="chat-form">
+        <button type="button" id="mic-btn" class="mic-btn" title="صحبت کن">🎤</button>
+        <input type="text" id="chat-input" placeholder="پیامت رو بنویس یا میکروفون رو بزن..." autocomplete="off">
+        <button type="submit" id="send-btn">ارسال</button>
+      </form>
+    </section>
+
+  </main>
+
+  <script src="state.js"></script>
+  <script src="character.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
