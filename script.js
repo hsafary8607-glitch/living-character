@@ -176,10 +176,22 @@ async function speakWithAvalai(text) {
       addMessage("system", "خطای خروجی صدا (AvalAI): " + res.status + " " + errText);
       return;
     }
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.startsWith("audio/")) {
+      // یعنی احتمالاً به‌جای فایل صوتی، یه پیام خطای متنی/JSON برگشته
+      const bodyText = await res.text();
+      addMessage("system", "خروجی AvalAI صدا نبود (نوع: " + contentType + "): " + bodyText.slice(0, 200));
+      return;
+    }
     const audioBlob = await res.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
+    avalaiAudioPlayer.onerror = () => {
+      addMessage("system", "خطا در پخش فایل صوتی AvalAI (فرمت صدا رو مرورگر پشتیبانی نکرد).");
+    };
     avalaiAudioPlayer.src = audioUrl;
-    avalaiAudioPlayer.play();
+    avalaiAudioPlayer.play().catch((playErr) => {
+      addMessage("system", "پخش صدای AvalAI توسط مرورگر بلاک شد: " + playErr.message);
+    });
   } catch (err) {
     addMessage("system", "خطای شبکه در خروجی صدا (AvalAI): " + err.message);
   }
