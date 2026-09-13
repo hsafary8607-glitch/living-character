@@ -138,6 +138,15 @@ if ("speechSynthesis" in window && "onvoiceschanged" in window.speechSynthesis) 
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 }
 
+// ایموجی‌ها رو قبل از خوندن با صدا حذف می‌کنیم چون بعضی موتورهای TTS
+// اسم/توصیف ایموجی رو با صدای بلند می‌خونن که آزاردهنده‌ست.
+function stripEmojisForSpeech(text) {
+  return text
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\uFE0F]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function speakText(text) {
   if (!voiceOutputToggle.checked) return;
   if (!("speechSynthesis" in window)) {
@@ -145,9 +154,13 @@ function speakText(text) {
     return;
   }
 
+  const cleanText = stripEmojisForSpeech(text);
+  if (!cleanText) return;
+
   const doSpeak = () => {
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = "fa-IR";
+    utterance.rate = 0.92;
 
     // اگه voice‌ها هنوز لود نشدن (لیست خالیه)، یه بار دیگه سعی کن
     if (cachedVoices.length === 0) {
@@ -217,7 +230,8 @@ if (!SpeechRecognitionAPI) {
 } else {
   recognizer = new SpeechRecognitionAPI();
   recognizer.lang = "fa-IR";
-  recognizer.interimResults = false;
+  recognizer.interimResults = true;
+  recognizer.continuous = false;
   recognizer.maxAlternatives = 1;
 
   recognizer.onstart = () => {
@@ -238,8 +252,16 @@ if (!SpeechRecognitionAPI) {
   };
 
   recognizer.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
+    let transcript = "";
+    let isFinal = false;
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+      if (event.results[i].isFinal) isFinal = true;
+    }
     chatInput.value = transcript;
+    if (isFinal && transcript.trim()) {
+      chatForm.requestSubmit();
+    }
   };
 
   micBtn.addEventListener("click", () => {
