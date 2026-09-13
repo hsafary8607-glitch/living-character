@@ -11,15 +11,17 @@ const SETTINGS_KEY = "zendenama_settings";
 
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
-  if (!raw) return { apiKey: "", model: "qwen/qwen3.6-plus:free" };
+  if (!raw) return { apiKey: "", model: "qwen/qwen3.6-plus:free", avalaiApiKey: "", voiceEngine: "device" };
   try {
     const parsed = JSON.parse(raw);
     return {
       apiKey: parsed.apiKey || "",
-      model: parsed.model || "qwen/qwen3.6-plus:free"
+      model: parsed.model || "qwen/qwen3.6-plus:free",
+      avalaiApiKey: parsed.avalaiApiKey || "",
+      voiceEngine: parsed.voiceEngine || "device"
     };
   } catch {
-    return { apiKey: "", model: "qwen/qwen3.6-plus:free" };
+    return { apiKey: "", model: "qwen/qwen3.6-plus:free", avalaiApiKey: "", voiceEngine: "device" };
   }
 }
 
@@ -33,10 +35,15 @@ const apiKeyInput = document.getElementById("api-key");
 const modelSelect = document.getElementById("model-select");
 const saveBtn = document.getElementById("save-settings");
 const statusText = document.getElementById("settings-status");
+const avalaiApiKeyInput = document.getElementById("avalai-api-key");
+const voiceEngineSelect = document.getElementById("voice-engine-select");
+const avalaiAudioPlayer = document.getElementById("avalai-audio-player");
 
 // نمایش تنظیمات ذخیره‌شده‌ی قبلی
 apiKeyInput.value = settings.apiKey;
 modelSelect.value = settings.model;
+avalaiApiKeyInput.value = settings.avalaiApiKey;
+voiceEngineSelect.value = settings.voiceEngine;
 
 const chatLog = document.getElementById("chat-log");
 const chatForm = document.getElementById("chat-form");
@@ -147,15 +154,54 @@ function stripEmojisForSpeech(text) {
     .trim();
 }
 
+const AVALAI_BASE = "https://api.avalai.ir/v1";
+
+async function speakWithAvalai(text) {
+  if (!settings.avalaiApiKey) {
+    addMessage("system", "برای استفاده از خروجی صوتی AvalAI، اول کلید API AvalAI رو تو تنظیمات وارد و ذخیره کن.");
+    return;
+  }
+  try {
+    const voice = customization.gender === "girl" ? "shimmer" : "onyx";
+    const res = await fetch(AVALAI_BASE + "/audio/speech", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + settings.avalaiApiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ model: "tts-1", voice: voice, input: text })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      addMessage("system", "خطای خروجی صدا (AvalAI): " + res.status + " " + errText);
+      return;
+    }
+    const audioBlob = await res.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    avalaiAudioPlayer.src = audioUrl;
+    avalaiAudioPlayer.play();
+  } catch (err) {
+    addMessage("system", "خطای شبکه در خروجی صدا (AvalAI): " + err.message);
+  }
+}
+
 function speakText(text) {
   if (!voiceOutputToggle.checked) return;
+
+  const cleanText = stripEmojisForSpeech(text);
+  if (!cleanText) return;
+
+  // اگه کاربر موتور صدای ابری AvalAI رو انتخاب کرده، از همون استفاده می‌کنیم
+  // و کاری به speechSynthesis خود مرورگر نداریم.
+  if (settings.voiceEngine === "avalai") {
+    speakWithAvalai(cleanText);
+    return;
+  }
+
   if (!("speechSynthesis" in window)) {
     addMessage("system", "مرورگرت از خروجی صوتی (speechSynthesis) پشتیبانی نمی‌کنه.");
     return;
   }
-
-  const cleanText = stripEmojisForSpeech(text);
-  if (!cleanText) return;
 
   const doSpeak = () => {
     const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -263,19 +309,105 @@ if (!SpeechRecognitionAPI) {
       chatForm.requestSubmit();
     }
   };
-
-  micBtn.addEventListener("click", () => {
-    if (isListening) {
-      recognizer.stop();
-    } else {
-      try {
-        recognizer.start();
-      } catch {
-        // اگه از قبل در حال اجرا بود یا خطای دیگه‌ای داد
-      }
-    }
-  });
 }
+
+// ===== ورودی صدای ابری (اختیاری — AvalAI/Whisper) =====
+// این بخش جایگزین تشخیص گفتار خود مرورگر نمیشه؛ فقط وقتی settings.voiceEngine
+// روی "avalai" باشه فعال میشه. حالت پیش‌فرض (device) دقیقاً همون تشخیص گفتار
+// مرورگر بالاست که دست‌نخورده باقی مونده.
+let avalaiMediaRecorder = null;
+let avalaiChunks = [];
+let avalaiRecording = false;
+
+async function startAvalaiRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    avalaiChunks = [];
+    avalaiMediaRecorder = new MediaRecorder(stream);
+    avalaiMediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) avalaiChunks.push(e.data);
+    };
+    avalaiMediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      avalaiRecording = false;
+      micBtn.classList.remove("listening");
+      const audioBlob = new Blob(avalaiChunks, { type: "audio/webm" });
+      await transcribeWithAvalai(audioBlob);
+    };
+    avalaiMediaRecorder.start();
+    avalaiRecording = true;
+    micBtn.classList.add("listening");
+  } catch (err) {
+    addMessage("system", "خطا در دسترسی به میکروفون (AvalAI): " + err.message);
+  }
+}
+
+function stopAvalaiRecording() {
+  if (avalaiMediaRecorder && avalaiRecording) {
+    avalaiMediaRecorder.stop();
+  }
+}
+
+async function transcribeWithAvalai(audioBlob) {
+  if (!settings.avalaiApiKey) {
+    addMessage("system", "برای استفاده از تشخیص گفتار AvalAI، اول کلید API AvalAI رو تو تنظیمات وارد و ذخیره کن.");
+    return;
+  }
+  addMessage("system", "در حال تبدیل صدا به متن (AvalAI)...");
+  try {
+    const formData = new FormData();
+    formData.append("file", audioBlob, "speech.webm");
+    formData.append("model", "whisper-1");
+    const res = await fetch(AVALAI_BASE + "/audio/transcriptions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + settings.avalaiApiKey },
+      body: formData
+    });
+    chatLog.removeChild(chatLog.lastChild); // حذف پیام "در حال تبدیل..."
+    if (!res.ok) {
+      const errText = await res.text();
+      addMessage("system", "خطای تبدیل صدا (AvalAI): " + res.status + " " + errText);
+      return;
+    }
+    const data = await res.json();
+    const transcript = (data.text || "").trim();
+    if (transcript) {
+      chatInput.value = transcript;
+      chatForm.requestSubmit();
+    } else {
+      addMessage("system", "صدایی تشخیص داده نشد.");
+    }
+  } catch (err) {
+    if (chatLog.lastChild && chatLog.lastChild.textContent.includes("در حال تبدیل")) {
+      chatLog.removeChild(chatLog.lastChild);
+    }
+    addMessage("system", "خطای شبکه در تبدیل صدا (AvalAI): " + err.message);
+  }
+}
+
+// ===== دکمه‌ی میکروفون: انتخاب بین حالت دستگاه (پیش‌فرض) و AvalAI =====
+micBtn.addEventListener("click", () => {
+  if (settings.voiceEngine === "avalai") {
+    if (avalaiRecording) {
+      stopAvalaiRecording();
+    } else {
+      startAvalaiRecording();
+    }
+    return;
+  }
+
+  // حالت پیش‌فرض: همون تشخیص گفتار خود مرورگر که از قبل کار می‌کرد
+  if (!recognizer) return;
+  if (isListening) {
+    recognizer.stop();
+  } else {
+    try {
+      recognizer.start();
+    } catch {
+      // اگه از قبل در حال اجرا بود یا خطای دیگه‌ای داد
+    }
+  }
+});
 
 function renderCharacterStatus() {
   const moodLabel = MOOD_LABELS_FA[characterState.mood] || characterState.mood;
@@ -297,6 +429,8 @@ function addMessage(role, text) {
 saveBtn.addEventListener("click", () => {
   settings.apiKey = apiKeyInput.value.trim();
   settings.model = modelSelect.value;
+  settings.avalaiApiKey = avalaiApiKeyInput.value.trim();
+  settings.voiceEngine = voiceEngineSelect.value;
 
   if (!settings.apiKey) {
     statusText.style.color = "#e77";
