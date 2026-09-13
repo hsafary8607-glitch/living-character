@@ -164,9 +164,10 @@ function speakText(text) {
       utterance.voice = matched || faVoices[0];
     } else {
       // هیچ صدای فارسی رو این دستگاه/مرورگر نصب نیست.
-      // خالی گذاشتن lang باعث خطای synthesis-failed تو بعضی موتورهای TTS اندروید میشه؛
-      // به‌جاش زبان مرورگر (یا انگلیسی) رو می‌ذاریم تا لااقل صدایی پخش بشه.
-      utterance.lang = navigator.language || "en-US";
+      // نکته‌ی مهم: اگه زبان سیستم گوشی فارسیه، navigator.language هم "fa-IR" برمی‌گرده،
+      // پس fallback به navigator.language دوباره سکوت ایجاد می‌کنه. صریح می‌ذاریم انگلیسی
+      // که مطمئنیم موتور TTS داره (طبق تست صدای گوشی).
+      utterance.lang = "en-US";
       if (!speakText._warnedNoFaVoice) {
         speakText._warnedNoFaVoice = true;
         addMessage("system", "هیچ صدای فارسی رو این مرورگر/گوشی نصب نیست؛ صدا با لهجه/زبان دیگه‌ای پخش میشه (یا اصلاً پخش نمیشه). از تنظیمات گوشی، پک زبان فارسی گوگل TTS رو نصب کن.");
