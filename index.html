@@ -58,6 +58,23 @@
 
       <button id="save-settings">ذخیره تنظیمات</button>
       <p id="settings-status" class="status-text"></p>
+
+      <hr style="border-color:#333; margin:16px 0;">
+
+      <h2>تنظیمات صدای ابری (اختیاری — AvalAI)</h2>
+      <p class="status-text" style="margin-top:0;">
+        اگه می‌خوای صدای ورودی/خروجی باکیفیت‌تر و واقعاً فارسی داشته باشی (نه صدای دستگاه)،
+        کلید API خودت رو از AvalAI اینجا بذار. اگه خالی بمونه، همون صدای رایگان دستگاه استفاده میشه.
+      </p>
+
+      <label for="avalai-api-key">کلید API (AvalAI)</label>
+      <input type="password" id="avalai-api-key" placeholder="کلید API AvalAI (اختیاری)">
+
+      <label for="voice-engine-select">موتور صدا</label>
+      <select id="voice-engine-select">
+        <option value="device">صدای دستگاه (رایگان)</option>
+        <option value="avalai">AvalAI (پولی — کیفیت بالاتر، فارسی واقعی)</option>
+      </select>
     </section>
 
     <section class="chat-panel">
@@ -70,6 +87,7 @@
         🔊 تست صدای گوشی (بدون ارتباط با هوش مصنوعی)
       </button>
       <div id="chat-log" class="chat-log"></div>
+      <audio id="avalai-audio-player" style="display:none;"></audio>
 
       <form id="chat-form" class="chat-form">
         <button type="button" id="mic-btn" class="mic-btn" title="صحبت کن">🎤</button>
@@ -84,4 +102,4 @@
   <script src="character.js"></script>
   <script src="script.js"></script>
 </body>
-        </html>
+</html>
